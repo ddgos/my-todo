@@ -6,7 +6,7 @@ use pest_derive::Parser;
 
 #[derive(Parser, Debug, PartialEq)]
 #[grammar = "./mtd.pest"]
-struct Document {
+pub struct Document {
     preamble: Option<Preamble>,
     iterations: Vec<Iteration>,
 }

@@ -7,3 +7,10 @@ edition = "2021"
 anyhow = "1.0.95"
 pest = "2.7.15"
 pest_derive = "2.7.15"
+
+[dev-dependencies]
+criterion = { version = "0.5.1", features = ["html_reports"] }
+
+[[bench]]
+name = "benches"
+harness = false
