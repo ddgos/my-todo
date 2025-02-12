@@ -28,7 +28,8 @@ Iteration = {
     Tasks
 }
 
-IterationHeader = _{ "# " ~ ASCII_DIGIT+ }
+IterationHeader = _{ "# " ~ Number }
+Number = { ASCII_DIGIT+ }
 
 Tasks = _{
 	(
@@ -38,7 +39,7 @@ Tasks = _{
 }
 
 Task = {
-	ASCII_DIGIT+ ~
+	Number ~
     ". [" ~
     TaskStatus ~
     "] " ~

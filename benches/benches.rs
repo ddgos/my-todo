@@ -19,28 +19,46 @@ fn bench_display_doc_1(c: &mut Criterion) {
             content: "# Preamble\n\nI am the preamble!".to_string(),
         }),
         iterations: vec![
-            Iteration {
-                tasks: vec![
-                    Task {
-                        status: TaskStatus::Incomplete,
-                        description: "unstarted".to_string(),
-                    },
-                    Task {
-                        status: TaskStatus::Complete,
-                        description: "complete".to_string(),
-                    },
-                    Task {
-                        status: TaskStatus::Cancelled,
-                        description: "cancelled".to_string(),
-                    },
-                ],
-            },
-            Iteration {
-                tasks: vec![Task {
-                    status: TaskStatus::Incomplete,
-                    description: "next iteration".to_string(),
-                }],
-            },
+            (
+                0,
+                Iteration {
+                    tasks: vec![
+                        (
+                            1,
+                            Task {
+                                status: TaskStatus::Incomplete,
+                                description: "unstarted".to_string(),
+                            },
+                        ),
+                        (
+                            2,
+                            Task {
+                                status: TaskStatus::Complete,
+                                description: "complete".to_string(),
+                            },
+                        ),
+                        (
+                            3,
+                            Task {
+                                status: TaskStatus::Cancelled,
+                                description: "cancelled".to_string(),
+                            },
+                        ),
+                    ],
+                },
+            ),
+            (
+                1,
+                Iteration {
+                    tasks: vec![(
+                        1,
+                        Task {
+                            status: TaskStatus::Incomplete,
+                            description: "next iteration".to_string(),
+                        },
+                    )],
+                },
+            ),
         ],
     };
     c.bench_function("display_doc_1", |b| {
@@ -52,23 +70,35 @@ fn bench_display_doc_2(c: &mut Criterion) {
     let doc_2: Document = Document {
         preamble: None,
         iterations: vec![
-            Iteration {
-                tasks: vec![
-                    Task {
-                        status: TaskStatus::Incomplete,
-                        description: "unstarted".to_string(),
-                    },
-                    Task {
-                        status: TaskStatus::Complete,
-                        description: "complete".to_string(),
-                    },
-                    Task {
-                        status: TaskStatus::Cancelled,
-                        description: "cancelled".to_string(),
-                    },
-                ],
-            },
-            Iteration { tasks: Vec::new() },
+            (
+                0,
+                Iteration {
+                    tasks: vec![
+                        (
+                            1,
+                            Task {
+                                status: TaskStatus::Incomplete,
+                                description: "unstarted".to_string(),
+                            },
+                        ),
+                        (
+                            2,
+                            Task {
+                                status: TaskStatus::Complete,
+                                description: "complete".to_string(),
+                            },
+                        ),
+                        (
+                            3,
+                            Task {
+                                status: TaskStatus::Cancelled,
+                                description: "cancelled".to_string(),
+                            },
+                        ),
+                    ],
+                },
+            ),
+            (1, Iteration { tasks: Vec::new() }),
         ],
     };
     c.bench_function("display_doc_2", |b| {

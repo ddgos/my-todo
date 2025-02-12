@@ -9,17 +9,17 @@ use pest_derive::Parser;
 #[grammar = "./mtd.pest"]
 pub struct Document {
     pub preamble: Option<Preamble>,
-    pub iterations: Vec<Iteration>,
+    pub iterations: Vec<(usize, Iteration)>,
 }
 
-impl Document {
-    pub fn new(preamble: Option<Preamble>, iterations: Vec<Iteration>) -> Self {
-        Self {
-            preamble,
-            iterations,
-        }
-    }
-}
+// impl Document {
+//     pub fn new(preamble: Option<Preamble>, iterations: Vec<(Iteration>) -> Self {
+//         Self {
+//             preamble,
+//             iterations,
+//         }
+//     }
+// }
 
 impl FromStr for Document {
     type Err = Error;
@@ -52,22 +52,39 @@ impl FromStr for Document {
         let mut iterations = Vec::new();
         for iteration in iterations_pair.into_inner() {
             // If this has gone wrong, check ./src/mtd.pest
-            assert_eq!(
+            debug_assert_eq!(
                 iteration.as_rule(),
                 Rule::Iteration,
                 "grammar definition mismatched with FromStr definition"
             );
 
+            let mut iteration_inner = iteration.into_inner();
+            // the first pair within an iteration is the header
+            let iteration_num: usize = iteration_inner
+                .next()
+                .expect("should have a header")
+                .as_str()
+                .parse()
+                // if this goes wrong, check the pair rule is a number
+                .expect("should parse to usize due to grammar rules");
+
             let mut tasks = Vec::new();
-            for task in iteration.into_inner() {
-                assert_eq!(
+            // the rest of the pairs in an iteration are tasks
+            for task in iteration_inner {
+                debug_assert_eq!(
                     task.as_rule(),
                     Rule::Task,
                     "grammar definition mismatched with FromStr definition"
                 );
                 let mut task_inner = task.into_inner();
 
-                let status_rule = task_inner.next().expect("should be two pairs").as_rule();
+                let task_num: usize = task_inner
+                    .next()
+                    .expect("should be three pairs")
+                    .as_str()
+                    .parse()
+                    .expect("Number in grammar should parse to usize");
+                let status_rule = task_inner.next().expect("should be three pairs").as_rule();
                 let status = match status_rule {
                     Rule::Incomplete => TaskStatus::Incomplete,
                     Rule::Complete => TaskStatus::Complete,
@@ -77,17 +94,20 @@ impl FromStr for Document {
 
                 let description = task_inner
                     .next()
-                    .expect("should be two pairs")
+                    .expect("should be three pairs")
                     .as_str()
                     .to_string();
 
-                tasks.push(Task {
-                    status,
-                    description,
-                })
+                tasks.push((
+                    task_num,
+                    Task {
+                        status,
+                        description,
+                    },
+                ))
             }
 
-            iterations.push(Iteration { tasks })
+            iterations.push((iteration_num, Iteration { tasks }))
         }
 
         Ok(Document {
@@ -103,7 +123,8 @@ impl Display for Document {
             write!(f, "{}\n\n", content)?;
         };
 
-        for (iter_num, Iteration { tasks }) in self.iterations.iter().enumerate() {
+        // ignore original iteration numbering
+        for (iter_num, (_, Iteration { tasks })) in self.iterations.iter().enumerate() {
             if iter_num > 0 {
                 write!(f, "\n\n")?;
             }
@@ -113,10 +134,13 @@ impl Display for Document {
             }
             for (
                 task_num,
-                Task {
-                    status,
-                    description,
-                },
+                (
+                    _, // ignore what it was originally numbered as
+                    Task {
+                        status,
+                        description,
+                    },
+                ),
             ) in tasks.iter().enumerate().map(|(num, task)| (num + 1, task))
             {
                 write!(f, "\n{}. [{}] {}", task_num, status, description)?
@@ -134,7 +158,7 @@ pub struct Preamble {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Iteration {
-    pub tasks: Vec<Task>,
+    pub tasks: Vec<(usize, Task)>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -175,27 +199,42 @@ mod tests {
         };
         let expected_first_iteration = Iteration {
             tasks: vec![
-                Task {
-                    status: TaskStatus::Incomplete,
-                    description: "unstarted".to_string(),
-                },
-                Task {
-                    status: TaskStatus::Complete,
-                    description: "complete".to_string(),
-                },
-                Task {
-                    status: TaskStatus::Cancelled,
-                    description: "cancelled".to_string(),
-                },
+                (
+                    1,
+                    Task {
+                        status: TaskStatus::Incomplete,
+                        description: "unstarted".to_string(),
+                    },
+                ),
+                (
+                    2,
+                    Task {
+                        status: TaskStatus::Complete,
+                        description: "complete".to_string(),
+                    },
+                ),
+                (
+                    3,
+                    Task {
+                        status: TaskStatus::Cancelled,
+                        description: "cancelled".to_string(),
+                    },
+                ),
             ],
         };
         let expected_second_iteration = Iteration {
-            tasks: vec![Task {
-                status: TaskStatus::Incomplete,
-                description: "next iteration".to_string(),
-            }],
+            tasks: vec![(
+                1,
+                Task {
+                    status: TaskStatus::Incomplete,
+                    description: "next iteration".to_string(),
+                },
+            )],
         };
-        let expected_iterations = vec![expected_first_iteration, expected_second_iteration];
+        let expected_iterations = vec![
+            (0, expected_first_iteration),
+            (1, expected_second_iteration),
+        ];
         let expected_document = Document {
             preamble: Some(expected_preamble),
             iterations: expected_iterations,
@@ -216,22 +255,34 @@ mod tests {
 
         let expected_first_iteration = Iteration {
             tasks: vec![
-                Task {
-                    status: TaskStatus::Incomplete,
-                    description: "unstarted".to_string(),
-                },
-                Task {
-                    status: TaskStatus::Complete,
-                    description: "complete".to_string(),
-                },
-                Task {
-                    status: TaskStatus::Cancelled,
-                    description: "cancelled".to_string(),
-                },
+                (
+                    1,
+                    Task {
+                        status: TaskStatus::Incomplete,
+                        description: "unstarted".to_string(),
+                    },
+                ),
+                (
+                    2,
+                    Task {
+                        status: TaskStatus::Complete,
+                        description: "complete".to_string(),
+                    },
+                ),
+                (
+                    3,
+                    Task {
+                        status: TaskStatus::Cancelled,
+                        description: "cancelled".to_string(),
+                    },
+                ),
             ],
         };
         let expected_second_iteration = Iteration { tasks: Vec::new() };
-        let expected_iterations = vec![expected_first_iteration, expected_second_iteration];
+        let expected_iterations = vec![
+            (0, expected_first_iteration),
+            (1, expected_second_iteration),
+        ];
         let expected_document = Document {
             preamble: None,
             iterations: expected_iterations,
@@ -255,27 +306,39 @@ mod tests {
         };
         let first_iteration = Iteration {
             tasks: vec![
-                Task {
-                    status: TaskStatus::Incomplete,
-                    description: "unstarted".to_string(),
-                },
-                Task {
-                    status: TaskStatus::Complete,
-                    description: "complete".to_string(),
-                },
-                Task {
-                    status: TaskStatus::Cancelled,
-                    description: "cancelled".to_string(),
-                },
+                (
+                    1,
+                    Task {
+                        status: TaskStatus::Incomplete,
+                        description: "unstarted".to_string(),
+                    },
+                ),
+                (
+                    2,
+                    Task {
+                        status: TaskStatus::Complete,
+                        description: "complete".to_string(),
+                    },
+                ),
+                (
+                    3,
+                    Task {
+                        status: TaskStatus::Cancelled,
+                        description: "cancelled".to_string(),
+                    },
+                ),
             ],
         };
         let second_iteration = Iteration {
-            tasks: vec![Task {
-                status: TaskStatus::Incomplete,
-                description: "next iteration".to_string(),
-            }],
+            tasks: vec![(
+                1,
+                Task {
+                    status: TaskStatus::Incomplete,
+                    description: "next iteration".to_string(),
+                },
+            )],
         };
-        let iterations = vec![first_iteration, second_iteration];
+        let iterations = vec![(0, first_iteration), (1, second_iteration)];
         let document = Document {
             preamble: Some(preamble),
             iterations,
@@ -291,22 +354,31 @@ mod tests {
 
         let first_iteration = Iteration {
             tasks: vec![
-                Task {
-                    status: TaskStatus::Incomplete,
-                    description: "unstarted".to_string(),
-                },
-                Task {
-                    status: TaskStatus::Complete,
-                    description: "complete".to_string(),
-                },
-                Task {
-                    status: TaskStatus::Cancelled,
-                    description: "cancelled".to_string(),
-                },
+                (
+                    1,
+                    Task {
+                        status: TaskStatus::Incomplete,
+                        description: "unstarted".to_string(),
+                    },
+                ),
+                (
+                    1,
+                    Task {
+                        status: TaskStatus::Complete,
+                        description: "complete".to_string(),
+                    },
+                ),
+                (
+                    1,
+                    Task {
+                        status: TaskStatus::Cancelled,
+                        description: "cancelled".to_string(),
+                    },
+                ),
             ],
         };
         let second_iteration = Iteration { tasks: Vec::new() };
-        let iterations = vec![first_iteration, second_iteration];
+        let iterations = vec![(0, first_iteration), (1, second_iteration)];
         let document = Document {
             preamble: None,
             iterations,
