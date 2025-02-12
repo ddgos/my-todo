@@ -1,14 +1,24 @@
+use std::fmt::{Display, Write};
 use std::str::FromStr;
 
 use anyhow::{Error, Result};
 use pest::Parser;
 use pest_derive::Parser;
 
-#[derive(Parser, Debug, PartialEq)]
+#[derive(Clone, Parser, Debug, PartialEq)]
 #[grammar = "./mtd.pest"]
 pub struct Document {
-    preamble: Option<Preamble>,
-    iterations: Vec<Iteration>,
+    pub preamble: Option<Preamble>,
+    pub iterations: Vec<Iteration>,
+}
+
+impl Document {
+    pub fn new(preamble: Option<Preamble>, iterations: Vec<Iteration>) -> Self {
+        Self {
+            preamble,
+            iterations,
+        }
+    }
 }
 
 impl FromStr for Document {
@@ -87,27 +97,68 @@ impl FromStr for Document {
     }
 }
 
-#[derive(Debug, PartialEq)]
-struct Preamble {
-    content: String,
+impl Display for Document {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(Preamble { content }) = &self.preamble {
+            write!(f, "{}\n\n", content)?;
+        };
+
+        for (iter_num, Iteration { tasks }) in self.iterations.iter().enumerate() {
+            if iter_num > 0 {
+                write!(f, "\n\n")?;
+            }
+            write!(f, "# {}", iter_num)?;
+            if !tasks.is_empty() {
+                f.write_char('\n')?;
+            }
+            for (
+                task_num,
+                Task {
+                    status,
+                    description,
+                },
+            ) in tasks.iter().enumerate().map(|(num, task)| (num + 1, task))
+            {
+                write!(f, "\n{}. [{}] {}", task_num, status, description)?
+            }
+        }
+        write!(f, "\n")?;
+        Ok(())
+    }
 }
 
-#[derive(Debug, PartialEq)]
-struct Iteration {
-    tasks: Vec<Task>,
+#[derive(Clone, Debug, PartialEq)]
+pub struct Preamble {
+    pub content: String,
 }
 
-#[derive(Debug, PartialEq)]
-struct Task {
-    status: TaskStatus,
-    description: String,
+#[derive(Clone, Debug, PartialEq)]
+pub struct Iteration {
+    pub tasks: Vec<Task>,
 }
 
-#[derive(Debug, PartialEq)]
-enum TaskStatus {
+#[derive(Clone, Debug, PartialEq)]
+pub struct Task {
+    pub status: TaskStatus,
+    pub description: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum TaskStatus {
     Incomplete,
     Complete,
     Cancelled,
+}
+
+impl Display for TaskStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let c = match self {
+            TaskStatus::Incomplete => ' ',
+            TaskStatus::Complete => 'x',
+            TaskStatus::Cancelled => 'c',
+        };
+        f.write_char(c)
+    }
 }
 
 #[cfg(test)]
@@ -192,5 +243,75 @@ mod tests {
             assert_eq!(expected_document.preamble, parsed_document.preamble);
         }
         assert_eq!(expected_document, parsed_document);
+    }
+
+    #[test]
+    fn doc_1_formats_correctly() {
+        let doc_str = include_str!(r#"../test_docs/doc_1.mtd"#);
+        println!("doc_1 is:\n{}", doc_str);
+
+        let preamble = Preamble {
+            content: "# Preamble\n\nI am the preamble!".to_string(),
+        };
+        let first_iteration = Iteration {
+            tasks: vec![
+                Task {
+                    status: TaskStatus::Incomplete,
+                    description: "unstarted".to_string(),
+                },
+                Task {
+                    status: TaskStatus::Complete,
+                    description: "complete".to_string(),
+                },
+                Task {
+                    status: TaskStatus::Cancelled,
+                    description: "cancelled".to_string(),
+                },
+            ],
+        };
+        let second_iteration = Iteration {
+            tasks: vec![Task {
+                status: TaskStatus::Incomplete,
+                description: "next iteration".to_string(),
+            }],
+        };
+        let iterations = vec![first_iteration, second_iteration];
+        let document = Document {
+            preamble: Some(preamble),
+            iterations,
+        };
+
+        assert_eq!(doc_str, format!("{}", document))
+    }
+
+    #[test]
+    fn doc_2_formats_correctly() {
+        let doc_str = include_str!(r#"../test_docs/doc_2.mtd"#);
+        println!("doc_2 is:\n{}", doc_str);
+
+        let first_iteration = Iteration {
+            tasks: vec![
+                Task {
+                    status: TaskStatus::Incomplete,
+                    description: "unstarted".to_string(),
+                },
+                Task {
+                    status: TaskStatus::Complete,
+                    description: "complete".to_string(),
+                },
+                Task {
+                    status: TaskStatus::Cancelled,
+                    description: "cancelled".to_string(),
+                },
+            ],
+        };
+        let second_iteration = Iteration { tasks: Vec::new() };
+        let iterations = vec![first_iteration, second_iteration];
+        let document = Document {
+            preamble: None,
+            iterations,
+        };
+
+        assert_eq!(doc_str, format!("{}", document))
     }
 }
