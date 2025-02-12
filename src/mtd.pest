@@ -1,0 +1,66 @@
+Document = _{
+	Preamble? ~
+    NEWLINE* ~
+    Iterations
+}
+
+Preamble = {
+	PreambleChar+
+}
+PreambleChar = _{
+	!PreambleFinisher ~
+    ANY
+}
+PreambleFinisher = {
+	NEWLINE* ~ Iteration
+}
+
+Iterations = {
+	(
+		Iteration ~
+    	NEWLINE*
+    )+
+}
+
+Iteration = {
+	IterationHeader ~
+    NEWLINE+ ~
+    Tasks
+}
+
+IterationHeader = _{ "# " ~ ASCII_DIGIT+ }
+
+Tasks = _{
+	(
+		Task ~
+    	NEWLINE*
+    )*
+}
+
+Task = {
+	ASCII_DIGIT+ ~
+    ". [" ~
+    TaskStatus ~
+    "] " ~
+    TaskDesc
+}
+TaskStatus = _{ (
+	Incomplete |
+	Complete |
+	Cancelled
+) }
+Incomplete = { " " }
+Complete = { ^"x" }
+Cancelled = { ^"c" }
+TaskDesc = {
+	TaskDescChar+
+}
+TaskDescChar = _{
+	!TaskDescFinisher ~
+    ANY
+}
+TaskDescFinisher = { (
+	NEWLINE* ~ EOI |
+	NEWLINE+ ~ Task |
+    NEWLINE+ ~ IterationHeader
+) }
